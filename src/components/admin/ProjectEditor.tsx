@@ -15,7 +15,7 @@ type Props = {
 
 const blank = (): ProjectInput => ({
   title: "",
-  year: new Date().getFullYear(),
+  period: "",
   desc: "",
   body: "",
   image: "",
@@ -23,13 +23,35 @@ const blank = (): ProjectInput => ({
   links: [],
 });
 
+// "2024.01 ~ 2025.03" → { start: "2024-01", end: "2025-03" } (month input 포맷)
+function parsePeriod(s: string): { start: string; end: string } {
+  if (!s) return { start: "", end: "" };
+  const [rawStart = "", rawEnd = ""] = s.split("~").map((x) => x.trim());
+  const toMonth = (p: string) => {
+    const m = p.match(/^(\d{4})\.(\d{2})$/);
+    return m ? `${m[1]}-${m[2]}` : "";
+  };
+  return { start: toMonth(rawStart), end: toMonth(rawEnd) };
+}
+
+// month input("2024-01") 두 값을 "yyyy.mm ~ yyyy.mm" 로 합침. 한쪽만 있으면 그쪽만.
+function formatPeriod(start: string, end: string): string {
+  const fmt = (m: string) => (m ? m.replace("-", ".") : "");
+  const s = fmt(start);
+  const e = fmt(end);
+  if (!s && !e) return "";
+  if (s && e) return `${s} ~ ${e}`;
+  if (s) return `${s} ~`;
+  return `~ ${e}`;
+}
+
 export default function ProjectEditor({ initial }: Props) {
   const router = useRouter();
   const [form, setForm] = useState<ProjectInput>(
     initial
       ? {
           title: initial.title,
-          year: initial.year,
+          period: initial.period,
           desc: initial.desc,
           body: initial.body,
           image: initial.image,
@@ -38,6 +60,9 @@ export default function ProjectEditor({ initial }: Props) {
         }
       : blank(),
   );
+  const initialParts = parsePeriod(form.period);
+  const [periodStart, setPeriodStart] = useState(initialParts.start);
+  const [periodEnd, setPeriodEnd] = useState(initialParts.end);
   const [toast, setToast] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -56,7 +81,7 @@ export default function ProjectEditor({ initial }: Props) {
       title: form.title.trim(),
       desc: form.desc.trim(),
       body: form.body,
-      year: Number(form.year) || new Date().getFullYear(),
+      period: formatPeriod(periodStart, periodEnd),
       links: form.links.filter(
         (l: ProjectLink) => l.label.trim() && l.url.trim(),
       ),
@@ -100,14 +125,22 @@ export default function ProjectEditor({ initial }: Props) {
 
       <div className="fld-row">
         <div className="fld">
-          <label>연도</label>
-          <input
-            type="number"
-            value={form.year}
-            min={2000}
-            max={2100}
-            onChange={(e) => update("year", Number(e.target.value))}
-          />
+          <label>기간</label>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              type="month"
+              value={periodStart}
+              onChange={(e) => setPeriodStart(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <span style={{ color: "var(--fg-dim)" }}>~</span>
+            <input
+              type="month"
+              value={periodEnd}
+              onChange={(e) => setPeriodEnd(e.target.value)}
+              style={{ flex: 1 }}
+            />
+          </div>
         </div>
         <div className="fld">
           <label>한 줄 설명</label>

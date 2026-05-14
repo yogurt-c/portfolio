@@ -54,17 +54,29 @@ const projectInputJsonSchema = {
   type: "object",
   properties: {
     title: { type: "string", minLength: 1, maxLength: 200 },
-    year: { type: "integer", minimum: 1990, maximum: 2100 },
-    desc: { type: "string", maxLength: 400, default: "" },
+    period: {
+      type: "string",
+      maxLength: 60,
+      description: "프로젝트 기간. 예: '2024.01 ~ 2025.03'. 자유 문자열.",
+      default: "",
+    },
+    desc: {
+      type: "string",
+      maxLength: 400,
+      description: "카드/리스트에 노출되는 한 줄 요약.",
+      default: "",
+    },
     body: {
       type: "string",
       maxLength: 50000,
-      description: "Tiptap-compatible HTML. 허용 태그만 자동 sanitize 됨.",
+      description:
+        "프로젝트 모달에 표시되는 본문 HTML (Tiptap 호환). 허용 태그: <p> <br> <strong> <em> <s> <u> <h2> <h3> <ul> <ol> <li> <blockquote> <code> <pre> <a href> <img>. 그 외는 sanitize 시 제거됨. 본문에 이미지를 넣으려면 먼저 upload_image 로 URL 을 받은 뒤 <img src=\"...\" alt=\"...\"> 형태로 본문 HTML 안에 직접 삽입한다. <img> 는 추가로 style=\"width: NN%\" (예: 80%) 와 data-align=\"left|center|right\" 만 허용.",
       default: "",
     },
     image: {
       type: "string",
-      description: "썸네일 이미지 URL. 빈 문자열 또는 절대 URL.",
+      description:
+        "카드 썸네일로 쓰이는 절대 URL. 비워둬도 됨. 사용 흐름: upload_image 를 먼저 호출해서 받은 url 을 여기에 그대로 넣는다. 외부 URL 도 동작은 하지만 자체 호스팅이 안전.",
       default: "",
     },
     tags: {
@@ -88,7 +100,7 @@ const projectInputJsonSchema = {
       default: [],
     },
   },
-  required: ["title", "year"],
+  required: ["title"],
   additionalProperties: false,
 } as const;
 
@@ -141,7 +153,7 @@ const TOOLS: ToolEntry[] = [
     def: {
       name: "create_project",
       description:
-        "새 프로젝트를 생성합니다. 목록 최상단(position 0)에 배치되고 기존 항목은 한 칸씩 밀립니다.",
+        "새 프로젝트를 생성한다. 목록 최상단(position 0)에 배치되고 기존 항목은 한 칸씩 밀린다.\n\n전체 흐름:\n1) 첨부 이미지가 있으면 먼저 upload_image 를 각각 호출해 공개 URL 을 받는다.\n2) 그 URL 중 하나를 썸네일로 image 필드에 넣는다 (생략 가능).\n3) 본문에 이미지를 넣을 거면 body HTML 안에 <img src=\"<업로드한 URL>\" alt=\"...\"> 를 직접 삽입한다.\n4) title (필수) · period (예: \"2024.06 ~ 2025.05\") · desc · tags · links 를 채워 호출.\n\nbody 는 sanitize 되므로 허용 외 태그는 조용히 제거된다. period 는 자유 문자열이라 \"2024.06 ~\" 같은 진행중 표기도 가능.",
       inputSchema: projectInputJsonSchema as unknown as Record<string, unknown>,
     },
     handler: async (input) => {
@@ -155,7 +167,7 @@ const TOOLS: ToolEntry[] = [
         return tx.project.create({
           data: {
             title: data.title,
-            year: data.year,
+            period: data.period,
             desc: data.desc,
             body: sanitizeBody(data.body),
             image: data.image,
@@ -172,14 +184,14 @@ const TOOLS: ToolEntry[] = [
     def: {
       name: "update_project",
       description:
-        "id 로 프로젝트를 수정합니다. body/image 가 바뀌면 더 이상 참조되지 않는 Vercel Blob 도 best-effort 로 정리됩니다.",
+        "id 로 프로젝트를 수정한다. 입력 스키마는 create_project 와 동일 (이미지 첨부 시 upload_image → body/image 에 URL 사용하는 흐름도 동일).\n\n전체 필드를 덮어쓰는 방식이라 부분 업데이트 시에도 기존 값을 함께 넘겨야 한다. 먼저 get_project 로 현재 값을 읽고 바꿀 필드만 교체해서 호출하는 것을 권장.\n\nbody/image 가 바뀌어 더 이상 어디서도 참조되지 않는 Vercel Blob 은 best-effort 로 자동 삭제된다.",
       inputSchema: {
         type: "object",
         properties: {
           id: { type: "string", minLength: 1 },
           ...projectInputJsonSchema.properties,
         },
-        required: ["id", "title", "year"],
+        required: ["id", "title"],
         additionalProperties: false,
       },
     },
@@ -200,7 +212,7 @@ const TOOLS: ToolEntry[] = [
         where: { id },
         data: {
           title: data.title,
-          year: data.year,
+          period: data.period,
           desc: data.desc,
           body: cleanBody,
           image: data.image,
@@ -319,7 +331,7 @@ const TOOLS: ToolEntry[] = [
     def: {
       name: "upload_image",
       description:
-        "base64 로 인코딩된 이미지를 Vercel Blob 에 업로드하고 공개 URL 을 반환합니다. 그 URL 을 create_project/update_project 의 image 필드에 그대로 쓰면 됩니다. 최대 4MB.",
+        "base64 로 인코딩된 이미지를 Vercel Blob 에 업로드하고 공개 URL 을 반환한다. create_project / update_project 호출 전에 먼저 사용한다.\n\n반환된 url 의 용도:\n- 썸네일: image 필드에 그대로 넣는다.\n- 본문 이미지: body HTML 안에 <img src=\"<url>\" alt=\"...\"> 형태로 삽입한다. 본문에 여러 장 넣을 거면 이미지마다 이 도구를 호출해 각각의 url 을 받아 본문 HTML 의 해당 위치에 끼워넣는다.\n\n제약: 최대 4MB, MIME 은 image/jpeg|png|webp|gif|avif 만 허용. data URL 접두사(\"data:image/...;base64,\")는 자동 제거되므로 그대로 넘겨도 됨.",
       inputSchema: {
         type: "object",
         properties: {

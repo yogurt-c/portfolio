@@ -42,7 +42,7 @@ export async function PUT(req: Request, ctx: Ctx) {
       where: { id },
       data: {
         title: data.title,
-        year: data.year,
+        period: data.period,
         desc: data.desc,
         body: cleanBody,
         image: data.image,

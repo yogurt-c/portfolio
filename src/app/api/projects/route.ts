@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     return tx.project.create({
       data: {
         title: data.title,
-        year: data.year,
+        period: data.period,
         desc: data.desc,
         body: sanitizeBody(data.body),
         image: data.image,

@@ -20,7 +20,7 @@ export function serializeProject(row: DbProject): Project {
   return {
     id: row.id,
     title: row.title,
-    year: row.year,
+    period: row.period,
     desc: row.desc,
     body: row.body,
     image: row.image,

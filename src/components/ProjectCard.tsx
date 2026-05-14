@@ -34,7 +34,7 @@ export default function ProjectCard({ project, index, onOpen }: Props) {
       </div>
       <div className="meta">
         <span className="idx">[ {String(index + 1).padStart(2, "0")} ]</span>
-        <span className="yr">{project.year}</span>
+        <span className="yr">{project.period}</span>
       </div>
       <h2 className="title">{project.title}</h2>
       <p className="desc">{project.desc}</p>

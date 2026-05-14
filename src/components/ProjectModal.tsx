@@ -35,7 +35,7 @@ export default function ProjectModal({ project, onClose }: Props) {
           ✕
         </button>
         <div className="m-meta">
-          <span>{project.year}</span>
+          {project.period && <span>{project.period}</span>}
           {project.tags[0] && <span>{project.tags[0]}</span>}
         </div>
         <h2 className="m-title">{project.title}</h2>

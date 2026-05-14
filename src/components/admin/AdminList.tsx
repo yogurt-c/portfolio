@@ -122,13 +122,13 @@ function SortableRow({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={project.image} alt="" />
         ) : (
-          <span>{project.year}</span>
+          <span>{project.period}</span>
         )}
       </div>
       <div className="info">
         <h3 className="t">{project.title}</h3>
         <p className="d">
-          <span className="y">{project.year}</span>
+          <span className="y">{project.period}</span>
           {project.desc}
         </p>
       </div>

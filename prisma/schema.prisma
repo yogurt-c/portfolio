@@ -10,7 +10,7 @@ datasource db {
 model Project {
   id        String   @id @default(cuid())
   title     String
-  year      Int
+  period    String   @default("") // 예: "2024.01 ~ 2025.03"
   desc      String
   body      String   @default("") // Tiptap HTML
   image     String   @default("")

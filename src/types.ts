@@ -6,7 +6,7 @@ export type ProjectLink = {
 export type Project = {
   id: string;
   title: string;
-  year: number;
+  period: string;
   desc: string;
   body: string;
   image: string;

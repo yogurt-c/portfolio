@@ -7,7 +7,7 @@ export const linkSchema = z.object({
 
 export const projectInputSchema = z.object({
   title: z.string().min(1).max(200),
-  year: z.number().int().min(1990).max(2100),
+  period: z.string().max(60).default(""),
   desc: z.string().max(400).default(""),
   body: z.string().max(50_000).default(""),
   image: z
