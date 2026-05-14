@@ -34,6 +34,9 @@ export default function AdminBar({ title, variant }: Props) {
         )}
         {variant === "list" && (
           <>
+            <Link className="btn btn-ghost" href="/admin/mcp">
+              MCP
+            </Link>
             <Link className="btn btn-ghost" href="/admin/profile">
               프로필
             </Link>

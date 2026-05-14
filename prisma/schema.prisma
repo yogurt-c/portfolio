@@ -32,3 +32,15 @@ model Profile {
   github   String
   location String
 }
+
+// MCP 클라이언트별 API 토큰. 평문은 발급 시점에만 노출되고 DB 엔 hash 만 저장.
+model McpToken {
+  id         String    @id @default(cuid())
+  label      String
+  hash       String
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+
+  @@index([revokedAt])
+}

@@ -80,6 +80,74 @@ prisma/
 | POST   | /api/auth/logout         | 세션 만료                      |
 | GET    | /api/auth/me             | 200/401                       |
 | POST   | /api/upload              | 이미지 업로드 (auth, multipart) → `{ url }` |
+| POST   | /api/mcp                 | MCP JSON-RPC 엔드포인트 (Bearer 토큰 또는 어드민 세션) |
+| GET    | /api/mcp/health          | MCP 인증/버전 확인 (Bearer 토큰 또는 어드민 세션) |
+| GET    | /api/admin/mcp-tokens    | MCP 토큰 목록 (auth)                |
+| POST   | /api/admin/mcp-tokens    | MCP 토큰 발급 (auth) — 평문은 응답에서 1회만 노출 |
+| DELETE | /api/admin/mcp-tokens/:id| MCP 토큰 회수 (auth)                |
+
+## MCP 연동 (Claude로 포트폴리오 편집)
+
+Claude와 대화하면서 프로젝트/프로필을 추가·수정·재정렬할 수 있도록 **내장 MCP 서버**를 같이 띄운다.
+
+### 노출되는 툴
+
+| 툴 | 설명 |
+|---|---|
+| `list_projects` / `get_project` | 프로젝트 조회 |
+| `create_project` / `update_project` / `delete_project` | 프로젝트 CRUD (`delete`는 `confirm: true` 2단계) |
+| `reorder_projects` | id 배열로 position 일괄 재할당 |
+| `get_profile` / `update_profile` | 프로필 조회·수정 |
+| `upload_image` | base64 이미지 → Vercel Blob 업로드 후 공개 URL 반환 |
+
+### 토큰 발급
+
+1. 어드민 진입 → 상단 바의 **MCP** 클릭
+2. 기기/클라이언트별 라벨로 토큰 발급 (예: `laptop-claude-code`, `desktop-claude`, `web`)
+3. 발급 모달이 토큰 평문 + 클라이언트별 복붙 스니펫 3개(Claude Code / Claude Desktop / claude.ai)를 제공
+4. 평문은 **이번 한 번만** 표시. 분실 시 회수 후 재발급
+5. 의심되면 해당 토큰만 회수 — 어드민 세션이나 다른 토큰엔 영향 없음
+
+### 클라이언트별 등록
+
+**Claude Code (CLI):**
+```bash
+claude mcp add --transport http portfolio \
+  https://<your-host>/api/mcp \
+  --header "Authorization: Bearer <TOKEN>"
+```
+
+**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "portfolio": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://<your-host>/api/mcp",
+               "--header", "Authorization: Bearer <TOKEN>"]
+    }
+  }
+}
+```
+
+**claude.ai 웹** (Pro/Team): Settings → Connectors → Add custom connector
+- URL: `https://<your-host>/api/mcp`
+- Header: `Authorization` = `Bearer <TOKEN>`
+
+### 헬스 체크
+
+설정 직후 토큰이 살아있는지 빠르게 확인:
+```bash
+curl -H "Authorization: Bearer <TOKEN>" https://<your-host>/api/mcp/health
+# → { "ok": true, "via": "token", "server": {...}, "protocolVersion": "..." }
+```
+
+### 보안 메모
+
+- 평문 토큰은 `pm_` 접두사 + 32바이트 랜덤. DB 엔 bcrypt(12) 해시만 저장.
+- Bearer 인증은 `/api/auth/login` 과 동일한 IP 단위 rate-limit 카운터를 공유. 무차별 대입 시 5회 실패 후 5분 락.
+- Tiptap HTML body 는 MCP 경로에서도 동일한 `sanitizeBody` 화이트리스트를 통과.
+- `delete_project` 는 `confirm: true` 가 없으면 미리보기만 반환 — Claude 가 실수로 지우는 사고 차단.
 
 ## 이미지 저장소 (Vercel Blob)
 

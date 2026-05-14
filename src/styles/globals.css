@@ -1216,6 +1216,214 @@ body {
 }
 
 /* ============================================================
+   MCP token admin
+   ============================================================ */
+.mcp-wrap {
+  padding: 24px var(--page-pad-x) 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 960px;
+}
+.mcp-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  padding: 20px 22px;
+}
+.mcp-h {
+  margin: 0 0 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-mute);
+}
+.mcp-help {
+  margin: 0 0 14px;
+  color: var(--fg-mute);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.mcp-inline {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg);
+  padding: 1px 6px;
+  border: 1px solid var(--rule);
+}
+.mcp-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.mcp-input {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1px solid var(--rule-strong);
+  background: var(--bg-elev);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  border-radius: var(--radius);
+  outline: none;
+}
+.mcp-input:focus {
+  border-color: var(--accent);
+}
+.mcp-empty {
+  color: var(--fg-mute);
+  font-size: 13px;
+  padding: 8px 0;
+}
+.mcp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.mcp-table th,
+.mcp-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.mcp-table th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-mute);
+  font-weight: 500;
+}
+.mcp-table tr.revoked td {
+  color: var(--fg-dim);
+}
+.mcp-label {
+  font-family: var(--font-mono);
+}
+.mcp-actions {
+  text-align: right;
+  width: 0;
+  white-space: nowrap;
+}
+.btn.btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+.btn.danger {
+  color: var(--danger);
+}
+.mcp-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--rule-strong);
+}
+.mcp-badge.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.mcp-badge.revoked {
+  color: var(--fg-dim);
+}
+.mcp-copy {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  padding: 8px 10px;
+}
+.mcp-copy pre {
+  flex: 1;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+}
+.mcp-copy.block {
+  align-items: flex-start;
+}
+.mcp-copy.block pre {
+  white-space: pre;
+  overflow-x: auto;
+}
+.mcp-copy.mono pre {
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+.mcp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 34, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 64px 24px;
+  z-index: 2000;
+  overflow-y: auto;
+}
+.mcp-modal {
+  background: var(--bg-elev);
+  border: 1px solid var(--rule-strong);
+  width: 100%;
+  max-width: 720px;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.mcp-modal-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.mcp-warn {
+  background: rgba(217, 32, 32, 0.06);
+  border: 1px solid rgba(217, 32, 32, 0.4);
+  color: var(--danger);
+  font-size: 13px;
+  padding: 10px 12px;
+}
+.mcp-warn b {
+  font-weight: 600;
+}
+.mcp-token-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mcp-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--rule);
+}
+.mcp-tab {
+  padding: 8px 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--fg-mute);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.mcp-tab.on {
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+}
+.mcp-tab:hover:not(.on) {
+  color: var(--fg);
+}
+.mcp-snippet {
+  margin-top: -4px;
+}
+
+/* ============================================================
    Responsive
    ============================================================ */
 @media (max-width: 760px) {
