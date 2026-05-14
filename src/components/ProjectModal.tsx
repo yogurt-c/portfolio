@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Project } from "@/types";
 import ArchSVG from "./ArchSVG";
 
@@ -10,9 +10,15 @@ type Props = {
 };
 
 export default function ProjectModal({ project, onClose }: Props) {
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        if (lightbox) setLightbox(null);
+        else onClose();
+      }
     };
     window.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
@@ -21,9 +27,23 @@ export default function ProjectModal({ project, onClose }: Props) {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [onClose]);
+  }, [onClose, lightbox]);
+
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "IMG" && (target as HTMLImageElement).src) {
+        setLightbox((target as HTMLImageElement).src);
+      }
+    };
+    el.addEventListener("click", onClick);
+    return () => el.removeEventListener("click", onClick);
+  }, [project.body]);
 
   return (
+    <>
     <div className="modal-scrim" onClick={onClose}>
       <div
         className="modal"
@@ -43,7 +63,12 @@ export default function ProjectModal({ project, onClose }: Props) {
         <div className="m-hero">
           {project.image ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={project.image} alt="" />
+            <img
+              src={project.image}
+              alt=""
+              className="zoomable"
+              onClick={() => setLightbox(project.image)}
+            />
           ) : (
             <div className="ph">
               <ArchSVG seed={project.id} />
@@ -52,6 +77,7 @@ export default function ProjectModal({ project, onClose }: Props) {
         </div>
         {project.body && (
           <div
+            ref={bodyRef}
             className="m-body"
             // body 는 관리자가 작성한 Tiptap HTML. 신뢰 가능한 단일 작성자라 sanitize 생략.
             dangerouslySetInnerHTML={{ __html: project.body }}
@@ -77,5 +103,19 @@ export default function ProjectModal({ project, onClose }: Props) {
         )}
       </div>
     </div>
+    {lightbox && (
+      <div className="lightbox-scrim" onClick={() => setLightbox(null)}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={lightbox} alt="" onClick={(e) => e.stopPropagation()} />
+        <button
+          className="lightbox-close"
+          onClick={() => setLightbox(null)}
+          aria-label="Close"
+        >
+          ✕
+        </button>
+      </div>
+    )}
+    </>
   );
 }
