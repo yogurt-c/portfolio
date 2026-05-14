@@ -54,7 +54,11 @@ admin-pw: ## 관리자 비밀번호 입력 받아 bcrypt 해시 후 .env 에 갱
 	printf 'ADMIN_PASSWORD_HASH="%s"\n' "$$HASH_ESC" >> .env.tmp; \
 	mv .env.tmp .env; \
 	chmod 600 .env; \
-	echo "✓ ADMIN_PASSWORD_HASH 갱신 완료"
+	echo "✓ ADMIN_PASSWORD_HASH 갱신 완료 (.env)"; \
+	echo ""; \
+	echo "── Vercel 등록용 값 (따옴표/백슬래시 없이 그대로 복사) ──"; \
+	printf '%s\n' "$$HASH"; \
+	echo "────────────────────────────────────────────────────────"
 
 # ---------- DB ----------
 
