@@ -111,8 +111,8 @@ async function main() {
         desc: p.desc,
         body: p.body,
         image: p.image ?? "",
-        tags: JSON.stringify(p.tags),
-        links: JSON.stringify(p.links),
+        tags: p.tags,
+        links: p.links,
         position: i,
       },
     });

@@ -10,7 +10,9 @@ export const projectInputSchema = z.object({
   year: z.number().int().min(1990).max(2100),
   desc: z.string().max(400).default(""),
   body: z.string().max(50_000).default(""),
-  image: z.string().max(2_000_000).default(""), // data URL allowed
+  image: z
+    .union([z.string().url().max(1000), z.literal("")])
+    .default(""),
   tags: z.array(z.string().min(1).max(40)).max(40).default([]),
   links: z.array(linkSchema).max(20).default([]),
 });

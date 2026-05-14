@@ -1,23 +1,43 @@
 "use client";
 
+import { useState } from "react";
+
 type Props = {
   value: string;
   onChange: (next: string) => void;
 };
 
-const fileToDataURL = (file: File) =>
-  new Promise<string>((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result as string);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
+async function uploadFile(file: File): Promise<string> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch("/api/upload", { method: "POST", body: fd });
+  if (!res.ok) {
+    const msg = await res
+      .json()
+      .then((j) => j?.error ?? "업로드 실패")
+      .catch(() => "업로드 실패");
+    throw new Error(typeof msg === "string" ? msg : "업로드 실패");
+  }
+  const data = (await res.json()) as { url: string };
+  return data.url;
+}
 
 export default function ImagePicker({ value, onChange }: Props) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
   const onFile = async (file: File | undefined) => {
     if (!file) return;
-    const url = await fileToDataURL(file);
-    onChange(url);
+    setError("");
+    setBusy(true);
+    try {
+      const url = await uploadFile(file);
+      onChange(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "업로드 실패");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -34,20 +54,28 @@ export default function ImagePicker({ value, onChange }: Props) {
         <input
           type="url"
           placeholder="이미지 URL (https://...)"
-          value={value.startsWith("data:") ? "" : value}
+          value={value}
           onChange={(e) => onChange(e.target.value)}
+          disabled={busy}
         />
         <div className="row">
-          <label className="btn btn-ghost" style={{ cursor: "pointer" }}>
-            파일 업로드
+          <label
+            className="btn btn-ghost"
+            style={{ cursor: busy ? "wait" : "pointer", opacity: busy ? 0.6 : 1 }}
+          >
+            {busy ? "업로드 중…" : "파일 업로드"}
             <input
               type="file"
               accept="image/*"
               style={{ display: "none" }}
-              onChange={(e) => onFile(e.target.files?.[0])}
+              disabled={busy}
+              onChange={(e) => {
+                onFile(e.target.files?.[0]);
+                e.target.value = "";
+              }}
             />
           </label>
-          {value && (
+          {value && !busy && (
             <button
               type="button"
               className="btn btn-ghost btn-danger"
@@ -57,7 +85,13 @@ export default function ImagePicker({ value, onChange }: Props) {
             </button>
           )}
         </div>
-        <div className="hint">비워두면 도식형 일러스트가 자동 생성됩니다.</div>
+        <div className="hint">
+          {error ? (
+            <span style={{ color: "var(--danger, #c33)" }}>{error}</span>
+          ) : (
+            "JPG/PNG/WEBP/GIF/AVIF · 최대 4MB"
+          )}
+        </div>
       </div>
     </div>
   );

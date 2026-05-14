@@ -60,15 +60,14 @@ admin-pw: ## 관리자 비밀번호 입력 받아 bcrypt 해시 후 .env 에 갱
 
 db: db-push db-seed ## 스키마 푸시 + 시드
 
-db-push: ## Prisma 스키마를 SQLite 로 푸시
+db-push: ## Prisma 스키마를 Postgres 로 푸시
 	npx prisma db push
 
 db-seed: ## 샘플 프로젝트 6건 + 프로필 시드
 	npm run db:seed
 
-db-reset: ## SQLite 파일 삭제 후 푸시 + 재시드
-	rm -f prisma/dev.db prisma/dev.db-journal
-	npx prisma db push
+db-reset: ## Postgres 모든 데이터 삭제 후 푸시 + 재시드
+	npx prisma db push --force-reset
 	npm run db:seed
 
 # ---------- 개발 / 빌드 ----------
@@ -90,6 +89,5 @@ lint: ## next lint
 clean: ## 빌드 산출물 제거 (.next, tsbuildinfo)
 	rm -rf .next *.tsbuildinfo
 
-nuke: clean ## clean + node_modules + 로컬 SQLite 까지 제거
+nuke: clean ## clean + node_modules 제거
 	rm -rf node_modules
-	rm -f prisma/dev.db prisma/dev.db-journal

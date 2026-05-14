@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -14,8 +14,8 @@ model Project {
   desc      String
   body      String   @default("") // Tiptap HTML
   image     String   @default("")
-  tags      String   @default("[]") // JSON: string[]
-  links     String   @default("[]") // JSON: { label, url }[]
+  tags      String[] @default([])
+  links     Json     @default("[]") // { label, url }[]
   position  Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

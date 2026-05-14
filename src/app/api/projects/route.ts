@@ -34,8 +34,8 @@ export async function POST(req: Request) {
         desc: data.desc,
         body: sanitizeBody(data.body),
         image: data.image,
-        tags: JSON.stringify(data.tags),
-        links: JSON.stringify(data.links),
+        tags: data.tags,
+        links: data.links,
         position: 0,
       },
     });
