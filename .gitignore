@@ -1,0 +1,21 @@
+node_modules/
+.next/
+out/
+build/
+.env
+.env.local
+.env.development.local
+.env.production.local
+.DS_Store
+._*
+*.tsbuildinfo
+next-env.d.ts
+
+# Local DB
+prisma/dev.db
+prisma/dev.db-journal
+
+# Design handoff scratch
+/design.bin
+/design.tar
+/design/
