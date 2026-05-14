@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { put } from "@vercel/blob";
 import { randomUUID } from "node:crypto";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { serializeProject } from "@/lib/project";
 import { sanitizeBody } from "@/lib/sanitize";
@@ -11,6 +12,7 @@ import {
   deleteOrphans,
   extByMime,
 } from "@/lib/blob";
+import { createSignedUpload } from "@/lib/upload-sig";
 import {
   projectInputSchema,
   profileInputSchema,
@@ -70,13 +72,13 @@ const projectInputJsonSchema = {
       type: "string",
       maxLength: 50000,
       description:
-        "프로젝트 모달에 표시되는 본문 HTML (Tiptap 호환). 허용 태그: <p> <br> <strong> <em> <s> <u> <h2> <h3> <ul> <ol> <li> <blockquote> <code> <pre> <a href> <img>. 그 외는 sanitize 시 제거됨. 본문에 이미지를 넣으려면 먼저 upload_image 로 URL 을 받은 뒤 <img src=\"...\" alt=\"...\"> 형태로 본문 HTML 안에 직접 삽입한다. <img> 는 추가로 style=\"width: NN%\" (예: 80%) 와 data-align=\"left|center|right\" 만 허용.",
+        "프로젝트 모달에 표시되는 본문 HTML (Tiptap 호환). 허용 태그: <p> <br> <strong> <em> <s> <u> <h2> <h3> <ul> <ol> <li> <blockquote> <code> <pre> <a href> <img>. 그 외는 sanitize 시 제거됨. 본문에 이미지를 넣으려면 먼저 create_upload_url (권장) 또는 upload_image 로 공개 URL 을 받은 뒤 <img src=\"...\" alt=\"...\"> 형태로 본문 HTML 안에 직접 삽입한다. <img> 는 추가로 style=\"width: NN%\" (예: 80%) 와 data-align=\"left|center|right\" 만 허용.",
       default: "",
     },
     image: {
       type: "string",
       description:
-        "카드 썸네일로 쓰이는 절대 URL. 비워둬도 됨. 사용 흐름: upload_image 를 먼저 호출해서 받은 url 을 여기에 그대로 넣는다. 외부 URL 도 동작은 하지만 자체 호스팅이 안전.",
+        "카드 썸네일로 쓰이는 절대 URL. 비워둬도 됨. 사용 흐름: create_upload_url (권장) 또는 upload_image 를 먼저 호출해서 받은 url 을 여기에 그대로 넣는다. 외부 URL 도 동작은 하지만 자체 호스팅이 안전.",
       default: "",
     },
     tags: {
@@ -153,7 +155,7 @@ const TOOLS: ToolEntry[] = [
     def: {
       name: "create_project",
       description:
-        "새 프로젝트를 생성한다. 목록 최상단(position 0)에 배치되고 기존 항목은 한 칸씩 밀린다.\n\n전체 흐름:\n1) 첨부 이미지가 있으면 먼저 upload_image 를 각각 호출해 공개 URL 을 받는다.\n2) 그 URL 중 하나를 썸네일로 image 필드에 넣는다 (생략 가능).\n3) 본문에 이미지를 넣을 거면 body HTML 안에 <img src=\"<업로드한 URL>\" alt=\"...\"> 를 직접 삽입한다.\n4) title (필수) · period (예: \"2024.06 ~ 2025.05\") · desc · tags · links 를 채워 호출.\n\nbody 는 sanitize 되므로 허용 외 태그는 조용히 제거된다. period 는 자유 문자열이라 \"2024.06 ~\" 같은 진행중 표기도 가능.",
+        "새 프로젝트를 생성한다. 목록 최상단(position 0)에 배치되고 기존 항목은 한 칸씩 밀린다.\n\n전체 흐름:\n1) 첨부 이미지가 있으면 먼저 create_upload_url (권장) 또는 upload_image 를 각각 호출해 공개 URL 을 받는다. create_upload_url 은 파일 바이트가 모델 컨텍스트를 거치지 않아 안전.\n2) 그 URL 중 하나를 썸네일로 image 필드에 넣는다 (생략 가능).\n3) 본문에 이미지를 넣을 거면 body HTML 안에 <img src=\"<업로드한 URL>\" alt=\"...\"> 를 직접 삽입한다.\n4) title (필수) · period (예: \"2024.06 ~ 2025.05\") · desc · tags · links 를 채워 호출.\n\nbody 는 sanitize 되므로 허용 외 태그는 조용히 제거된다. period 는 자유 문자열이라 \"2024.06 ~\" 같은 진행중 표기도 가능.",
       inputSchema: projectInputJsonSchema as unknown as Record<string, unknown>,
     },
     handler: async (input) => {
@@ -184,7 +186,7 @@ const TOOLS: ToolEntry[] = [
     def: {
       name: "update_project",
       description:
-        "id 로 프로젝트를 수정한다. 입력 스키마는 create_project 와 동일 (이미지 첨부 시 upload_image → body/image 에 URL 사용하는 흐름도 동일).\n\n전체 필드를 덮어쓰는 방식이라 부분 업데이트 시에도 기존 값을 함께 넘겨야 한다. 먼저 get_project 로 현재 값을 읽고 바꿀 필드만 교체해서 호출하는 것을 권장.\n\nbody/image 가 바뀌어 더 이상 어디서도 참조되지 않는 Vercel Blob 은 best-effort 로 자동 삭제된다.",
+        "id 로 프로젝트를 수정한다. 입력 스키마는 create_project 와 동일 (이미지 첨부 시 create_upload_url → body/image 에 URL 사용하는 흐름도 동일).\n\n전체 필드를 덮어쓰는 방식이라 부분 업데이트 시에도 기존 값을 함께 넘겨야 한다. 먼저 get_project 로 현재 값을 읽고 바꿀 필드만 교체해서 호출하는 것을 권장.\n\nbody/image 가 바뀌어 더 이상 어디서도 참조되지 않는 Vercel Blob 은 best-effort 로 자동 삭제된다.",
       inputSchema: {
         type: "object",
         properties: {
@@ -331,7 +333,7 @@ const TOOLS: ToolEntry[] = [
     def: {
       name: "upload_image",
       description:
-        "base64 로 인코딩된 이미지를 Vercel Blob 에 업로드하고 공개 URL 을 반환한다. create_project / update_project 호출 전에 먼저 사용한다.\n\n반환된 url 의 용도:\n- 썸네일: image 필드에 그대로 넣는다.\n- 본문 이미지: body HTML 안에 <img src=\"<url>\" alt=\"...\"> 형태로 삽입한다. 본문에 여러 장 넣을 거면 이미지마다 이 도구를 호출해 각각의 url 을 받아 본문 HTML 의 해당 위치에 끼워넣는다.\n\n제약: 최대 4MB, MIME 은 image/jpeg|png|webp|gif|avif 만 허용. data URL 접두사(\"data:image/...;base64,\")는 자동 제거되므로 그대로 넘겨도 됨.",
+        "[작은 이미지 전용] base64 인코딩 이미지를 Vercel Blob 에 업로드하고 공개 URL 을 반환한다.\n\n주의: data 인자(base64 문자열)가 모델 응답 토큰을 직접 소비한다. 가로 ~400px / base64 ~30KB 이하의 아주 작은 이미지가 아니라면 거의 항상 create_upload_url 이 더 안전 — 그쪽은 파일 바이트가 모델 컨텍스트를 거치지 않는다. 결정에 망설이면 create_upload_url 을 써라.\n\n반환된 url 의 용도:\n- 썸네일: image 필드에 그대로 넣는다.\n- 본문 이미지: body HTML 안에 <img src=\"<url>\" alt=\"...\"> 형태로 삽입.\n\n제약: 최대 4MB, MIME 은 image/jpeg|png|webp|gif|avif. data URL 접두사(\"data:image/...;base64,\")는 자동 제거.",
       inputSchema: {
         type: "object",
         properties: {
@@ -373,6 +375,43 @@ const TOOLS: ToolEntry[] = [
         addRandomSuffix: false,
       });
       return json({ url: result.url });
+    },
+  },
+  {
+    def: {
+      name: "create_upload_url",
+      description:
+        "이미지를 업로드할 때 쓰는 일회용 서명 URL 을 발급한다. 모델 응답 토큰을 소비하지 않으므로 보통은 upload_image (base64) 보다 이쪽이 안전 — 큰 이미지든 작은 이미지든 이걸 우선 고려.\n\n흐름:\n1) create_upload_url({ mime }) 호출 → { uploadUrl, expiresAt } 반환.\n2) Bash 로 직접 업로드:\n     curl -X POST -H 'content-type: <mime>' --data-binary @<파일경로> '<uploadUrl>'\n   응답 본문: { url: '<공개 URL>' }.\n3) 받은 url 을 create_project / update_project 의 image 필드(썸네일) 또는 body HTML 의 <img src> 에 그대로 사용.\n\n제약:\n- TTL 10분 (expiresAt 지나면 401).\n- mime 은 image/jpeg|png|webp|gif|avif.\n- 파일 자체 최대 4MB.\n- 한 번 발급된 uploadUrl 로 여러 번 업로드해도 매번 새 공개 URL 이 발급된다 (서버에서 랜덤 키 생성).",
+      inputSchema: {
+        type: "object",
+        properties: {
+          mime: {
+            type: "string",
+            enum: ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"],
+          },
+        },
+        required: ["mime"],
+        additionalProperties: false,
+      },
+    },
+    handler: async (input) => {
+      const parsed = z.object({ mime: z.string().min(1) }).safeParse(input);
+      if (!parsed.success) return errorResult("invalid input");
+      const { mime } = parsed.data;
+      if (!ALLOWED_MIME.has(mime)) {
+        return errorResult("unsupported type", { mime });
+      }
+      const h = await headers();
+      const host = h.get("host");
+      if (!host) return errorResult("cannot resolve host");
+      const proto =
+        h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+      const { exp, sig } = createSignedUpload(mime);
+      const qs = new URLSearchParams({ sig, exp: String(exp), mime }).toString();
+      return json({
+        uploadUrl: `${proto}://${host}/api/upload/direct?${qs}`,
+        expiresAt: new Date(exp).toISOString(),
+      });
     },
   },
 ];
