@@ -5,6 +5,7 @@ import { serializeProject } from "@/lib/project";
 import { sanitizeBody } from "@/lib/sanitize";
 import { projectInputSchema } from "@/lib/validation";
 import { collectBlobUrls, deleteOrphans } from "@/lib/blob";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -29,36 +30,41 @@ export async function PUT(req: Request, ctx: Ctx) {
     );
   }
   const data = parsed.data;
-
   const cleanBody = sanitizeBody(data.body);
 
   try {
-    const before = await prisma.project.findUnique({ where: { id } });
-    if (!before) {
-      return NextResponse.json({ error: "not found" }, { status: 404 });
-    }
-
-    const updated = await prisma.project.update({
-      where: { id },
-      data: {
-        title: data.title,
-        period: data.period,
-        desc: data.desc,
-        body: cleanBody,
-        image: data.image,
-        tags: data.tags,
-        links: data.links,
-      },
+    // update 전 이전 URL 수집을 위해 먼저 조회 후 update를 트랜잭션으로 묶음.
+    const [before, updated] = await prisma.$transaction(async (tx) => {
+      const prev = await tx.project.findUnique({ where: { id } });
+      if (!prev) throw Object.assign(new Error("not found"), { code: "P2025" });
+      const next = await tx.project.update({
+        where: { id },
+        data: {
+          title: data.title,
+          period: data.period,
+          desc: data.desc,
+          body: cleanBody,
+          image: data.image,
+          tags: data.tags,
+          links: data.links,
+        },
+      });
+      return [prev, next];
     });
 
-    // 더 이상 참조되지 않는 blob 정리. 실패해도 응답엔 영향 없음(best-effort).
     const oldUrls = collectBlobUrls(before.image, before.body);
     const newUrls = collectBlobUrls(updated.image, updated.body);
     void deleteOrphans(oldUrls, newUrls);
 
     return NextResponse.json(serializeProject(updated));
-  } catch {
-    return NextResponse.json({ error: "not found" }, { status: 404 });
+  } catch (e) {
+    if (
+      (e instanceof PrismaClientKnownRequestError && e.code === "P2025") ||
+      (e instanceof Error && e.message === "not found")
+    ) {
+      return NextResponse.json({ error: "not found" }, { status: 404 });
+    }
+    throw e;
   }
 }
 
@@ -68,13 +74,20 @@ export async function DELETE(_req: Request, ctx: Ctx) {
 
   const { id } = await ctx.params;
   try {
-    const before = await prisma.project.findUnique({ where: { id } });
-    await prisma.project.delete({ where: { id } });
+    // findUnique + delete를 트랜잭션으로 묶어 네트워크 왕복 1회로 처리.
+    const deleted = await prisma.$transaction(async (tx) => {
+      const row = await tx.project.findUnique({ where: { id } });
+      if (!row) return null;
+      await tx.project.delete({ where: { id } });
+      return row;
+    });
 
-    if (before) {
-      const urls = collectBlobUrls(before.image, before.body);
-      void deleteOrphans(urls, []);
+    if (!deleted) {
+      return NextResponse.json({ error: "not found" }, { status: 404 });
     }
+
+    const urls = collectBlobUrls(deleted.image, deleted.body);
+    void deleteOrphans(urls, []);
 
     return new NextResponse(null, { status: 204 });
   } catch {

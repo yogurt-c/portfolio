@@ -1,4 +1,4 @@
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes, timingSafeEqual, createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 
@@ -10,6 +10,23 @@ export function generatePlainToken(): string {
   return PREFIX + randomBytes(RAW_BYTES).toString("base64url");
 }
 
+// 신규 토큰은 sha256:<hex> 형식. 32바이트 랜덤 토큰은 SHA-256으로 충분히 안전.
+function hashToken(plain: string): string {
+  return "sha256:" + createHash("sha256").update(plain).digest("hex");
+}
+
+// 해시 형식 감지 후 비교. 기존 bcrypt 토큰은 폴백 처리.
+async function verifyHash(plain: string, stored: string): Promise<boolean> {
+  if (stored.startsWith("sha256:")) {
+    const expected = "sha256:" + createHash("sha256").update(plain).digest("hex");
+    const a = Buffer.from(expected);
+    const b = Buffer.from(stored);
+    return a.length === b.length && timingSafeEqual(a, b);
+  }
+  // 기존 bcrypt 토큰 폴백 (점진적 전환 완료 후 제거 가능)
+  return bcrypt.compare(plain, stored);
+}
+
 export type CreatedToken = {
   id: string;
   label: string;
@@ -19,7 +36,7 @@ export type CreatedToken = {
 
 export async function createMcpToken(label: string): Promise<CreatedToken> {
   const plain = generatePlainToken();
-  const hash = await bcrypt.hash(plain, 12);
+  const hash = hashToken(plain);
   const row = await prisma.mcpToken.create({
     data: { label, hash },
   });
@@ -60,8 +77,7 @@ export async function revokeMcpToken(id: string): Promise<boolean> {
   }
 }
 
-// 평문 토큰 검증. 접두사로 사전 필터 후 활성 토큰 전체를 bcrypt 로 비교.
-// 활성 토큰이 N 개이면 O(N) 비교. 단일 사용자/기기 수준이라 N 은 한 자리.
+// 평문 토큰 검증. SHA-256 토큰은 O(1) 해시 비교, 기존 bcrypt 토큰은 순차 비교.
 export async function verifyMcpToken(
   rawHeader: string | null,
 ): Promise<{ ok: false } | { ok: true; tokenId: string }> {
@@ -85,7 +101,7 @@ export async function verifyMcpToken(
     select: { id: true, hash: true },
   });
   for (const c of candidates) {
-    if (await bcrypt.compare(plain, c.hash)) {
+    if (await verifyHash(plain, c.hash)) {
       // best-effort lastUsedAt 갱신. 실패해도 검증 결과는 유효.
       void prisma.mcpToken
         .update({ where: { id: c.id }, data: { lastUsedAt: new Date() } })

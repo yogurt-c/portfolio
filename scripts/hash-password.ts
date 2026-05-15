@@ -7,5 +7,5 @@ if (!pw) {
   console.error("ADMIN_PW 환경변수가 설정되지 않았습니다.");
   process.exit(1);
 }
-const hash = bcrypt.hashSync(pw, 12);
+const hash = bcrypt.hashSync(pw, 10);
 console.log(hash);

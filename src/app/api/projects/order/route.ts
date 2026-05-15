@@ -21,6 +21,5 @@ export async function PATCH(req: Request) {
     ),
   );
 
-  const rows = await prisma.project.findMany({ orderBy: { position: "asc" } });
-  return NextResponse.json({ count: rows.length });
+  return NextResponse.json({ count: order.length });
 }
