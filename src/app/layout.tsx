@@ -18,7 +18,7 @@ const ibmPlexSansKR = IBM_Plex_Sans_KR({
 
 export const metadata: Metadata = {
   title: "Portfolio",
-  description: "Selected work — backend · distributed systems",
+  description: "Selected work",
 };
 
 export default function RootLayout({
