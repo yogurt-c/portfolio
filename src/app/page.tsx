@@ -4,6 +4,7 @@ import SiteHeader from "@/components/SiteHeader";
 import SectionBar from "@/components/SectionBar";
 import ProjectGrid from "@/components/ProjectGrid";
 import SiteFooter from "@/components/SiteFooter";
+import PrintSelector from "@/components/PrintSelector";
 import type { Profile } from "@/types";
 
 const DEFAULT_PROFILE: Profile = {
@@ -31,6 +32,7 @@ export default async function HomePage() {
       <SectionBar count={projects.length} />
       <ProjectGrid projects={projects} />
       <SiteFooter />
+      <PrintSelector projects={projects} />
     </>
   );
 }
